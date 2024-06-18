@@ -1,0 +1,17 @@
+version: '3'
+services:
+  selenium:
+    container_name: python-cron-selenium
+    image: selenium/standalone-chrome:latest
+    shm_size: 2gb
+    environment:
+      - 'TZ=Asia/Seoul'
+  app:
+    container_name: python-cron
+    build: ./app
+    image: python-cron:latest
+    restart: unless-stopped
+    depends_on:
+      - selenium    
+    environment:
+      - 'TZ=Asia/Seoul'
