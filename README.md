@@ -1,3 +1,9 @@
+가상환경 생성 [linux]
+> python -m venv ${NAME}
+
+가상환경 활성화 [linux]
+> source ${NAME}/bin/activate
+
 app 폴더의 DockerFile 실행
 > docker build -t chrome-cron .
 
