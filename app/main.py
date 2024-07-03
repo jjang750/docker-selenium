@@ -35,6 +35,7 @@ def landers():
 
     yyyy = int('20'+datetime.now().strftime('%y'))
     mm = int(datetime.now().strftime('%m'))
+    dd = datetime.now().strftime('%d')
 
     driver.get(f'https://www.ssglanders.com/game/schedule?year={yyyy}&month={mm}')
     driver.switch_to.default_content()
@@ -48,7 +49,11 @@ def landers():
     for calendar_row in calendar_dow:
         if calendar_row.text.endswith('인천'):
             s = calendar_row.text.split('\n')
-            message += str(s[:1]) + str(s[2:])
+            if s[0].__contains__(dd):
+                message += "▶ " + s[0]
+            else:
+                message += s[0]
+            message += " : " + s[2]
             message += '\n'
 
     print(message)
