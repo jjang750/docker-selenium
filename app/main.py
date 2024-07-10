@@ -50,11 +50,9 @@ def landers():
         if calendar_row.text.endswith('인천'):
             s = calendar_row.text.split('\n')
             if s[0].__contains__(dd):
-                message += "▶ " + s[0]
+                message += s[0] + " : " + s[2] + " ◀--\n"
             else:
-                message += s[0]
-            message += " : " + s[2]
-            message += '\n'
+                message += s[0] + " : " + s[2] + "\n"
 
     print(message)
 
