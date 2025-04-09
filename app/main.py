@@ -44,7 +44,7 @@ def landers():
     # TODO
     calendar_dow = driver.find_elements(By.CLASS_NAME, 'day.home')
 
-    message = f'Langers {yyyy}-{mm} \n'
+    message = f'Landers {yyyy}-{mm}-{dd}\n'
 
     for calendar_row in calendar_dow:
         if calendar_row.text.endswith('인천'):
