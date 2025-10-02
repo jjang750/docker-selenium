@@ -1,60 +1,42 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# -*- coding: utf-8 -*-
 import os
 from datetime import datetime
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
+import requests
 from tqdm.contrib.telegram import TelegramIO
-from webdriver_manager.chrome import ChromeDriverManager
-
-global driver
 
 
 def landers():
-    global driver
-    print('-- start --')
-
-    try:
-        option = Options()
-        option.add_argument('headless')
-        option.add_argument('disable-gpu')
-        option.add_argument('single-process')
-        option.add_argument('disable-dev-shm-usage')
-        option.add_argument('no-sandbox')
-
-        s = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=s, options=option)
-    except Exception as e:
-        print(e)
-        exit(0)
-
-    yyyy = int('20'+datetime.now().strftime('%y'))
+    yyyy = int('20' + datetime.now().strftime('%y'))
     mm = int(datetime.now().strftime('%m'))
     dd = datetime.now().strftime('%d')
 
-    driver.get(f'https://www.ssglanders.com/game/schedule?year={yyyy}&month={mm}')
-    driver.switch_to.default_content()
-    driver.implicitly_wait(1000)
-
-    # TODO
-    calendar_dow = driver.find_elements(By.CLASS_NAME, 'day.home')
-
     message = f'Landers {yyyy}-{mm}-{dd}\n'
 
-    for calendar_row in calendar_dow:
-        if calendar_row.text.endswith('인천'):
-            s = calendar_row.text.split('\n')
-            if s[0].__contains__(dd):
-                message += s[0] + " : " + s[2] + " ◀--\n"
-            else:
-                message += s[0] + " : " + s[2] + "\n"
+    url = "https://www.ssglanders.com/game/schedule/data"
+    params = {
+        "year": yyyy,
+        "month": mm
+    }
 
-    print(message)
+    res = requests.get(url, params=params)
+    res.raise_for_status()
+    data = res.json()
+    print(data)
+
+    # JSON 구조 확인 후 원하는 필드 출력
+    for item in data:  # 실제 키 이름 확인 필요
+        game_date = item.get("date")
+        home_team = item.get("home_key")
+        away_team = item.get("visit_key")
+        stadium = item.get("stadium")
+        gTime = item.get("gTime")
+        if f"{yyyy}-{mm}-{dd}" == game_date:
+            message += f"{game_date}:{gTime} {stadium} {away_team} VS {home_team} ★ \n"
+        else:
+            message += f"{game_date}:{gTime} {stadium} {away_team} VS {home_team}\n"
+
+        print(f"{game_date}:{gTime} {away_team} VS {home_team} : {stadium}")
 
     try:
         token = os.getenv('TELEGRAM_TOKEN')
@@ -64,15 +46,9 @@ def landers():
         telegram.write(message)
     except Exception as e:
         print(e)
-
-    # TODO
-
-    driver.quit()
     print('-- end --')
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     landers()
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
