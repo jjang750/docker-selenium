@@ -3,8 +3,10 @@
 import os
 import sys
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
+from icalendar import Calendar
 from tqdm.contrib.telegram import TelegramIO
 
 SCHEDULE_URL = "https://www.ssglanders.com/game/schedule/data"
@@ -91,6 +93,66 @@ def weather_line():
         return None
 
 
+def calendar_lines():
+    """개인 캘린더 오늘 일정 라인 리스트. 미설정/실패 시 None(섹션 생략), 일정 없으면 []."""
+    base = os.getenv('CALENDAR_API_URL')      # 예: https://panthip.ddns.net:8301
+    key = os.getenv('CALENDAR_API_KEY')
+    if not (base and key):
+        return None
+    today = datetime.now().strftime('%Y-%m-%d')
+    try:
+        res = requests.get(
+            f"{base}/api/v1/events",
+            params={"from": today, "to": today},
+            headers={"X-API-Key": key},
+            timeout=20,
+        )
+        res.raise_for_status()
+        events = res.json()
+    except Exception as e:
+        print(e)
+        return None
+    lines = []
+    for ev in events:
+        title = ev.get("title") or ev.get("contents") or "(제목 없음)"
+        btime = ev.get("btime")
+        lines.append(f"📅 {btime} {title}" if btime else f"📅 {title}")
+    return lines
+
+
+def google_calendar_lines():
+    """구글 캘린더(iCal) 오늘 일정 라인 리스트. 미설정/실패 시 None, 일정 없으면 []."""
+    url = os.getenv('GOOGLE_ICAL_URL')
+    if not url:
+        return None
+    try:
+        res = requests.get(url, timeout=20)
+        res.raise_for_status()
+        cal = Calendar.from_ical(res.content)
+    except Exception as e:
+        print(e)
+        return None
+    kst = ZoneInfo("Asia/Seoul")
+    today = datetime.now().date()
+    rows = []
+    for comp in cal.walk('VEVENT'):
+        dt = comp.get('DTSTART').dt
+        title = str(comp.get('SUMMARY') or "(제목 없음)")
+        if isinstance(dt, datetime):
+            local = dt.astimezone(kst) if dt.tzinfo else dt
+            if local.date() != today:
+                continue
+            hhmm = local.strftime('%H:%M')
+            # 00:00은 사실상 종일 일정 → 시간 생략
+            rows.append((hhmm, f"🗓️ {title}" if hhmm == '00:00' else f"🗓️ {hhmm} {title}"))
+        else:  # VALUE=DATE (종일)
+            if dt != today:
+                continue
+            rows.append(('00:00', f"🗓️ {title}"))
+    rows.sort()
+    return [line for _, line in rows]
+
+
 def send(message):
     """텔레그램 전송. 콘솔에도 출력."""
     print(message)
@@ -103,9 +165,10 @@ def send(message):
     print('-- end --')
 
 
-def daily_message(to_work, header_emoji, kind, full_schedule=False):
+def daily_message(to_work, header_emoji, kind, full_schedule=False, with_calendar=False):
     """출근/퇴근 공통 메시지 생성. to_work=True 출근(집→회사), False 퇴근(회사→집).
-    full_schedule=True면 오늘 경기 대신 당월 전체 일정을 표시(매달 1일 용)."""
+    full_schedule=True면 오늘 경기 대신 당월 전체 일정을 표시(매달 1일 용).
+    with_calendar=True면 개인 캘린더 오늘 일정을 추가."""
     today = datetime.now().strftime('%Y-%m-%d')
     d = datetime.now()
     lines = [f'{header_emoji} {d.month}월 {d.day}일({WEEKDAY[d.weekday()]}) {kind} 정보', '']
@@ -117,6 +180,13 @@ def daily_message(to_work, header_emoji, kind, full_schedule=False):
     weather = weather_line()
     if weather:
         lines.append(weather)
+
+    if with_calendar:
+        personal = calendar_lines()
+        google = google_calendar_lines()
+        if personal is not None or google is not None:
+            events = (personal or []) + (google or [])
+            lines += events if events else ['📅 오늘 일정 없음']
 
     games = fetch_games()
     if full_schedule:
@@ -132,8 +202,8 @@ def daily_message(to_work, header_emoji, kind, full_schedule=False):
 
 
 def morning():
-    """주중 06:10: 출근(집→회사) ETA + 날씨 + 오늘 경기."""
-    daily_message(to_work=True, header_emoji='☀️', kind='출근')
+    """주중 06:10: 출근(집→회사) ETA + 날씨 + 오늘 일정(캘린더) + 오늘 경기."""
+    daily_message(to_work=True, header_emoji='☀️', kind='출근', with_calendar=True)
 
 
 def evening():
