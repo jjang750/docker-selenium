@@ -87,7 +87,7 @@ def weather_line():
         cond, temp, feels, hum = [x.strip() for x in res.text.strip().split("|")]
         temp = temp.replace("+", "")
         feels = feels.replace("+", "")
-        return f"🌡️ {temp} · 체감 {feels} · 습도 {hum} {cond}"
+        return f"{cond} {temp} · 체감 {feels} · 습도 {hum}"
     except Exception as e:
         print(e)
         return None
